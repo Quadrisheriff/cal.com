@@ -6,10 +6,16 @@ import { Query, Config, Builder, Utils as QbUtils } from "react-awesome-query-bu
 import { JsonTree, ImmutableTree, BuilderProps } from "react-awesome-query-builder";
 
 import { trpc } from "@calcom/trpc/react";
-import { AppGetServerSidePropsContext, AppPrisma, AppUser } from "@calcom/types/AppGetServerSideProps";
+import {
+  AppGetServerSidePropsContext,
+  AppPrisma,
+  AppUser,
+  AppSsrInit,
+} from "@calcom/types/AppGetServerSideProps";
 import { inferSSRProps } from "@calcom/types/inferSSRProps";
 import { Icon } from "@calcom/ui";
-import { Button, TextField, SelectWithValidation as Select, TextArea, Shell } from "@calcom/ui/v2";
+import { Button, TextField, TextArea } from "@calcom/ui/components";
+import { SelectWithValidation as Select, Shell } from "@calcom/ui/v2";
 import FormCard from "@calcom/ui/v2/core/form/FormCard";
 
 import SingleForm from "../../components/SingleForm";
@@ -122,6 +128,21 @@ type SerializableRoute = Pick<Route, "id" | "action"> & {
   isFallback?: Route["isFallback"];
 };
 
+export const RoutingPages: { label: string; value: Route["action"]["type"] }[] = [
+  {
+    label: "Custom Page",
+    value: "customPageMessage",
+  },
+  {
+    label: "External Redirect",
+    value: "externalRedirectUrl",
+  },
+  {
+    label: "Event Redirect",
+    value: "eventTypeRedirectUrl",
+  },
+];
+
 const Route = ({
   route,
   routes,
@@ -140,20 +161,7 @@ const Route = ({
   moveDown?: { fn: () => void; check: () => boolean } | null;
 }) => {
   const index = routes.indexOf(route);
-  const RoutingPages: { label: string; value: Route["action"]["type"] }[] = [
-    {
-      label: "Custom Page",
-      value: "customPageMessage",
-    },
-    {
-      label: "External Redirect",
-      value: "externalRedirectUrl",
-    },
-    {
-      label: "Event Redirect",
-      value: "eventTypeRedirectUrl",
-    },
-  ];
+
   const { data: eventTypesByGroup } = trpc.useQuery(["viewer.eventTypes"]);
 
   const eventOptions: { label: string; value: string }[] = [];
@@ -463,8 +471,11 @@ RouteBuilder.getLayout = (page: React.ReactElement) => {
 export const getServerSideProps = async function getServerSideProps(
   context: AppGetServerSidePropsContext,
   prisma: AppPrisma,
-  user: AppUser
+  user: AppUser,
+  ssrInit: AppSsrInit
 ) {
+  const ssr = await ssrInit(context);
+
   if (!user) {
     return {
       redirect: {
@@ -513,6 +524,7 @@ export const getServerSideProps = async function getServerSideProps(
 
   return {
     props: {
+      trpcState: ssr.dehydrate(),
       form: getSerializableForm(form),
     },
   };
